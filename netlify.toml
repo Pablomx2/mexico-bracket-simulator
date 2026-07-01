@@ -1,0 +1,8 @@
+[build]
+  functions = "netlify/functions"
+
+[[redirects]]
+  from = "/api/odds"
+  to = "/.netlify/functions/odds"
+  status = 200
+  force = true
