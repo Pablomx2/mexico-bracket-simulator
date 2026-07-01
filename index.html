@@ -176,7 +176,7 @@
 <div class="wrap">
   <p class="eyebrow">Monte Carlo Bracket Model — Live</p>
   <h1>El Tri's Path to the Final</h1>
-  <p class="sub">World Cup 2026 bracket, auto-refreshed from real odds and real results. Pick a hypothetical opponent or let the live data confirm one, drag sliders to override, then run the simulation.</p>
+  <p class="sub">World Cup 2026 bracket, auto-refreshed from real results. Pick a hypothetical opponent or let the live data confirm one, drag sliders to override, then run the simulation.</p>
 
   <div class="livebar" id="liveBar">
     <span class="dot" id="liveDot"></span>
@@ -218,9 +218,8 @@
   </div>
 
   <p class="footer-note">
-    <b>Where these numbers come from, live:</b> every stage tries, in order: (1) a real head-to-head match price from The Odds API (aggregating DraftKings, bet365, and others) once that fixture is actually scheduled; (2) if no match is scheduled yet, a same-tournament "to win it all" outright price for Mexico vs. the selected/confirmed opponent, converted into a single-match estimate; (3) if live data hasn't loaded, the last hardcoded baseline. Match odds fold a 3-way (win/draw/loss) book price into a knockout advance-probability by splitting draws 50/50, which is a standard penalty-shootout approximation, not a book's actual number.<br><br>
-    <b>Bracket progression</b> is confirmed via ESPN's live schedule for the Mexico national team — once a stage's real opponent is set, that stage locks to a single confirmed matchup (dropdown disabled) instead of the earlier list of contenders.<br><br>
-    <b>Refresh cadence:</b> live data is re-pulled automatically every 6 minutes while this page is open, or on demand via "Refresh now."<br><br>
+    <b>What's actually live:</b> bracket progression. This page polls ESPN's public schedule for the Mexico national team every 6 minutes (free, no key required) — once a stage's real opponent is decided, that stage locks to the confirmed matchup (dropdown disabled) instead of a guess-list, and if Mexico loses, a banner says so.<br><br>
+    <b>What's not live:</b> the win-probability numbers themselves. A live odds feed (real sportsbook prices) needs a paid/keyed API and a server-side proxy to avoid exposing that key — skipped here to keep this a zero-setup static page. The percentages are model/market estimates as of July 1, 2026 (see baseline notes on each card); ask me in chat to refresh them after a round and I'll pull current numbers and update the file by hand.<br><br>
     <b>How the sim works:</b> each stage draws a random number against your weight for the selected opponent, cascading — lose any stage, the run stops. Bars show what share of N trials reached each stage; the convergence chart reads the same trials as a running average.
   </p>
 </div>
@@ -294,59 +293,9 @@ function getOptionBaseline(stageIdx, name){
 // ---------------------------------------------------------------------
 const MEXICO_ESPN_ID = '203';
 const ESPN_SCHEDULE_URL = `https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/teams/${MEXICO_ESPN_ID}/schedule`;
-const ODDS_PROXY_URL = '/api/odds';
 const REFRESH_MS = 6 * 60 * 1000;
 
-const LIVE = { odds:null, espnEvents:null, lastFetch:null, eliminated:null, lastError:null };
-
-function impliedProb(americanOdds){
-  if(americanOdds > 0) return 100/(americanOdds+100);
-  return -americanOdds/(-americanOdds+100);
-}
-
-function findMatchAdvanceProb(matches, opponent){
-  if(!matches || !opponent) return null;
-  const opp = opponent.toLowerCase();
-  const ev = matches.find(m=>{
-    const h=(m.home_team||'').toLowerCase(), a=(m.away_team||'').toLowerCase();
-    return (h==='mexico'&&a===opp) || (a==='mexico'&&h===opp);
-  });
-  if(!ev || !ev.bookmakers || !ev.bookmakers.length) return null;
-  let sum=0, n=0;
-  ev.bookmakers.forEach(bk=>{
-    const mkt = (bk.markets||[]).find(m=>m.key==='h2h');
-    if(!mkt) return;
-    const outs = mkt.outcomes||[];
-    const mex = outs.find(o=>(o.name||'').toLowerCase()==='mexico');
-    const oppO = outs.find(o=>(o.name||'').toLowerCase()===opp);
-    const draw = outs.find(o=>(o.name||'').toLowerCase()==='draw');
-    if(!mex || !oppO) return;
-    const pMex = impliedProb(mex.price);
-    const pOpp = impliedProb(oppO.price);
-    const pDraw = draw ? impliedProb(draw.price) : 0;
-    const total = pMex+pOpp+pDraw;
-    if(total<=0) return;
-    sum += (pMex + 0.5*pDraw)/total;
-    n++;
-  });
-  return n ? sum/n : null;
-}
-
-function getOutrightProb(outrights, teamName){
-  if(!outrights || !teamName) return null;
-  const name = teamName.toLowerCase();
-  let sum=0, n=0;
-  outrights.forEach(ev=>{
-    (ev.bookmakers||[]).forEach(bk=>{
-      (bk.markets||[]).forEach(mkt=>{
-        if(mkt.key!=='outrights') return;
-        const o = (mkt.outcomes||[]).find(x=>(x.name||'').toLowerCase()===name);
-        if(o) { sum += impliedProb(o.price); n++; }
-      });
-    });
-  });
-  return n ? sum/n : null;
-}
+const LIVE = { espnEvents:null, lastFetch:null, eliminated:null, lastError:null };
 
 function roundKeyFromName(name){
   const n = (name||'').toLowerCase();
@@ -398,32 +347,8 @@ function applyLiveEspn(){
   LIVE.eliminated = eliminated;
 }
 
-function applyLiveOdds(){
-  STAGES.forEach((s,i)=>{
-    const opp = state[i].selected;
-    s.liveSource = null;
-    if(!LIVE.odds) return;
-    const matchProb = findMatchAdvanceProb(LIVE.odds.matches, opp);
-    if(matchProb != null){
-      state[i].weight = Math.round(Math.min(97, Math.max(3, matchProb*100)));
-      s.liveSource = 'match';
-      return;
-    }
-    const mexP = getOutrightProb(LIVE.odds.outrights, 'Mexico');
-    const oppP = getOutrightProb(LIVE.odds.outrights, opp);
-    if(mexP != null && oppP != null && (mexP+oppP) > 0){
-      const p = mexP/(mexP+oppP);
-      state[i].weight = Math.round(Math.min(95, Math.max(5, p*100)));
-      s.liveSource = 'outright';
-    }
-  });
-}
-
 function sourceNoteFor(s, i){
-  const t = LIVE.lastFetch ? LIVE.lastFetch.toLocaleTimeString() : '';
-  if(s.liveSource === 'match') return `Live match odds (The Odds API) as of ${t}. Draws split 50/50 for advancement.`;
-  if(s.liveSource === 'outright') return `Live estimate from real "to win it all" prices, Mexico vs ${state[i].selected} (The Odds API) as of ${t}. No direct match odds yet — this fixture isn't priced individually.`;
-  if(s.confirmedLive) return `Opponent confirmed via ESPN. Odds not yet posted by books — showing last known estimate.`;
+  if(s.confirmedLive) return `Opponent confirmed via ESPN as of ${LIVE.lastFetch ? LIVE.lastFetch.toLocaleTimeString() : ''}. Win probability is still a manual estimate — ask in chat to refresh it.`;
   return s.sourceNote;
 }
 
@@ -451,35 +376,19 @@ function renderLiveBar(){
 }
 
 async function fetchLiveData(){
-  const results = await Promise.allSettled([
-    fetch(ESPN_SCHEDULE_URL).then(r=>{ if(!r.ok) throw new Error('espn '+r.status); return r.json(); }),
-    fetch(ODDS_PROXY_URL).then(r=>{ if(!r.ok) throw new Error('odds '+r.status); return r.json(); })
-  ]);
-
-  const [espnRes, oddsRes] = results;
   let errMsg = null;
-
-  if(espnRes.status === 'fulfilled'){
-    LIVE.espnEvents = espnRes.value.events || [];
-  } else {
+  try {
+    const r = await fetch(ESPN_SCHEDULE_URL);
+    if(!r.ok) throw new Error('espn '+r.status);
+    const data = await r.json();
+    LIVE.espnEvents = data.events || [];
+  } catch (e) {
     errMsg = 'ESPN fetch failed';
-    console.error('ESPN fetch failed', espnRes.reason);
-  }
-
-  if(oddsRes.status === 'fulfilled'){
-    LIVE.odds = oddsRes.value;
-    if(oddsRes.value && oddsRes.value.error === 'no_api_key'){
-      errMsg = (errMsg ? errMsg+' · ' : '') + 'no odds API key configured yet';
-      LIVE.odds = null;
-    }
-  } else {
-    errMsg = (errMsg ? errMsg+' · ' : '') + 'odds fetch failed';
-    console.error('Odds fetch failed', oddsRes.reason);
+    console.error('ESPN fetch failed', e);
   }
 
   LIVE.lastError = errMsg;
   if(LIVE.espnEvents) applyLiveEspn();
-  applyLiveOdds();
   LIVE.lastFetch = new Date();
 
   renderControls();
@@ -525,8 +434,8 @@ function renderControls(){
           ${s.options.map(o=>`<option value="${o.name}" ${o.name===state[i].selected?'selected':''}>${o.name}</option>`).join('')}
         </select>`;
 
-    const badgeClass = s.liveSource ? 'market' : (s.confidence === 'market' ? 'market' : 'model');
-    const badgeText = s.liveSource === 'match' ? 'LIVE MARKET' : s.liveSource === 'outright' ? 'LIVE EST.' : (s.confidence === 'market' ? 'REAL MARKET' : 'MODEL EST.');
+    const badgeClass = (s.confirmedLive || s.confidence === 'market') ? 'market' : 'model';
+    const badgeText = s.confirmedLive ? 'CONFIRMED (ESPN)' : (s.confidence === 'market' ? 'REAL MARKET' : 'MODEL EST.');
 
     card.innerHTML = `
       <h3>${s.label} <span class="badge ${badgeClass}">${badgeText}</span></h3>
@@ -547,8 +456,6 @@ function renderControls(){
       const name = e.target.value;
       state[idx].selected = name;
       state[idx].weight = getOptionBaseline(idx, name);
-      STAGES[idx].liveSource = null;
-      applyLiveOdds();
       renderControls();
       renderPath();
     });
@@ -567,7 +474,6 @@ document.getElementById('resetBtn').addEventListener('click', ()=>{
   STAGES.forEach((s,i)=>{
     if(!s.confirmedLive){ state[i].selected = s.options[0].name; }
     state[i].weight = getOptionBaseline(i, state[i].selected);
-    s.liveSource = null;
   });
   renderControls(); renderPath();
 });
