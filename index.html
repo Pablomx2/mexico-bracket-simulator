@@ -219,29 +219,28 @@
 
   <p class="footer-note">
     <b>What's actually live:</b> bracket progression. This page polls ESPN's public schedule for the Mexico national team every 6 minutes (free, no key required) — once a stage's real opponent is decided, that stage locks to the confirmed matchup (dropdown disabled) instead of a guess-list, and if Mexico loses, a banner says so.<br><br>
-    <b>What's not live:</b> the win-probability numbers themselves. A live odds feed (real sportsbook prices) needs a paid/keyed API and a server-side proxy to avoid exposing that key — skipped here to keep this a zero-setup static page. The percentages are model/market estimates as of July 1, 2026 (see baseline notes on each card); ask me in chat to refresh them after a round and I'll pull current numbers and update the file by hand.<br><br>
+    <b>What's not live:</b> the win-probability numbers themselves. A live odds feed (real sportsbook prices) needs a paid/keyed API and a server-side proxy to avoid exposing that key — skipped here to keep this a zero-setup static page. The percentages are model/market estimates as of July 5, 2026 (see baseline notes on each card); ask me in chat to refresh them after a round and I'll pull current numbers and update the file by hand.<br><br>
     <b>How the sim works:</b> each stage draws a random number against your weight for the selected opponent, cascading — lose any stage, the run stops. Bars show what share of N trials reached each stage; the convergence chart reads the same trials as a running average.
   </p>
 </div>
 
 <script>
 // ---------------------------------------------------------------------
-// BRACKET DATA (baseline as of July 1, 2026 — overwritten by live fetch)
+// BRACKET DATA (baseline as of July 5, 2026 — overwritten by live fetch)
 // ---------------------------------------------------------------------
 const STAGES = [
   {
     key:'r16', label:'Round of 16', fixed:true,
     confidence:'market',
-    sourceNote:'Real market, Jul 1: DraftKings 42% · bet365 ~38% · Kalshi 42–44%',
-    options:[{name:'England', prob:41}]
+    sourceNote:'Real market, Jul 5 (pre-kickoff, delayed by storm at Estadio Azteca): England -125 to -138 favorite, Mexico +100 to +115 → Mexico implied ~45–48%.',
+    options:[{name:'England', prob:46}]
   },
   {
-    key:'qf', label:'Quarterfinal', fixed:false,
+    key:'qf', label:'Quarterfinal', fixed:true,
     confidence:'model',
-    sourceNote:'No market yet — Brazil/Norway play their R16 July 5. Estimate from relative team strength (Opta title odds: Brazil ~6.5%, Norway ~2.8%).',
+    sourceNote:'Opponent confirmed: Norway stunned Brazil 2-1 in the R16 (Haaland 79\', 90\'; Neymar pen. for Brazil) — Norway\'s biggest win in its football history, and their title odds surged from +4000 to +1400. No direct market line yet for a hypothetical Mexico–Norway QF (Mexico still has to get past England), so this stays a model estimate, nudged down from the pre-match 44% given Norway\'s demonstrated strength.',
     options:[
-      {name:'Brazil', prob:24},
-      {name:'Norway', prob:44}
+      {name:'Norway', prob:39}
     ]
   },
   {
