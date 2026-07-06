@@ -232,13 +232,13 @@ const STAGES = [
   {
     key:'r16', label:'Round of 16', fixed:true,
     confidence:'market',
-    sourceNote:'Real market, Jul 5 (pre-kickoff, delayed by storm at Estadio Azteca): England -125 to -138 favorite, Mexico +100 to +115 → Mexico implied ~45–48%.',
-    options:[{name:'England', prob:46}]
+    sourceNote:'FINAL, Jul 5: England won 3-2 at Estadio Azteca (Bellingham 2, Kane pen. for England; Quiñones, Jiménez pen. for Mexico). England played the final 36+ min a man down after a Quansah red card but held on. Mexico is eliminated — everything below is now hypothetical only.',
+    options:[{name:'England', prob:0}]
   },
   {
     key:'qf', label:'Quarterfinal', fixed:true,
     confidence:'model',
-    sourceNote:'Opponent confirmed: Norway stunned Brazil 2-1 in the R16 (Haaland 79\', 90\'; Neymar pen. for Brazil) — Norway\'s biggest win in its football history, and their title odds surged from +4000 to +1400. No direct market line yet for a hypothetical Mexico–Norway QF (Mexico still has to get past England), so this stays a model estimate, nudged down from the pre-match 44% given Norway\'s demonstrated strength.',
+    sourceNote:'Hypothetical only — Mexico did not get here. Had El Tri beaten England, the QF opponent would\'ve been confirmed as Norway, who stunned Brazil 2-1 in the R16 (Haaland 79\', 90\'; Neymar pen. for Brazil) — Norway\'s biggest win in its football history, title odds surging from +4000 to +1400.',
     options:[
       {name:'Norway', prob:39}
     ]
@@ -294,7 +294,7 @@ const MEXICO_ESPN_ID = '203';
 const ESPN_SCHEDULE_URL = `https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/teams/${MEXICO_ESPN_ID}/schedule`;
 const REFRESH_MS = 6 * 60 * 1000;
 
-const LIVE = { espnEvents:null, lastFetch:null, eliminated:null, lastError:null };
+const LIVE = { espnEvents:null, lastFetch:null, eliminated:{ stage:'Round of 16', opponent:'England', score:'2-3' }, lastError:null };
 
 function roundKeyFromName(name){
   const n = (name||'').toLowerCase();
@@ -563,6 +563,8 @@ function renderResults(cum, se, convX, convY, convCI){
   document.getElementById('finalCi').textContent = '± '+se[2].toFixed(2)+'pp sampling error';
   document.getElementById('champScore').textContent = cum[3].toFixed(2)+'%';
   document.getElementById('champCi').textContent = '± '+se[3].toFixed(2)+'pp sampling error';
+
+  if(typeof Chart === 'undefined') return; // Chart.js CDN failed to load — skip charts, keep live-fetch/auto-refresh running
 
   const stageLabels = ['Win R16\n(reach QF)','Win QF\n(reach SF)','Win SF\n(reach Final)','Win Final\n(Champion)'];
 
