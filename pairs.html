@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pair Generator — No Repeats</title>
+<style>
+  :root{
+    --bg:#111827;
+    --panel:#1A2333;
+    --panel-2:#212C40;
+    --line:#2E3B52;
+    --paper:#EDEFF4;
+    --muted:#8C97AC;
+    --accent:#4F8CFF;
+    --accent-2:#22C58B;
+    --warn:#F2B84B;
+    --shadow: 0 8px 24px rgba(0,0,0,0.35);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background: radial-gradient(circle at 15% -10%, rgba(79,140,255,0.14), transparent 40%), var(--bg);
+    color:var(--paper);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    padding: 28px 18px 60px;
+  }
+  .wrap{max-width:900px; margin:0 auto;}
+  .eyebrow{font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--accent-2); font-weight:700; margin:0 0 6px;}
+  h1{font-size:clamp(24px,4vw,34px); margin:0 0 6px; font-weight:800;}
+  .sub{color:var(--muted); font-size:14px; margin:0 0 22px; max-width:640px; line-height:1.5;}
+
+  .panel{
+    background:var(--panel); border:1px solid var(--line); border-radius:12px;
+    padding:18px; margin-bottom:18px; box-shadow:var(--shadow);
+  }
+  .panel h3{margin:0 0 10px; font-size:12px; text-transform:uppercase; letter-spacing:.1em; color:var(--muted);}
+
+  textarea{
+    width:100%; min-height:190px; resize:vertical;
+    background:var(--panel-2); color:var(--paper); border:1px solid var(--line); border-radius:8px;
+    padding:12px; font-size:14px; line-height:1.6; font-family:inherit;
+  }
+  .row{display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-top:14px;}
+  .count{font-size:12px; color:var(--muted);}
+  .count b{color:var(--paper);}
+
+  label.opt{display:flex; align-items:center; gap:6px; font-size:13px; color:var(--muted); cursor:pointer; user-select:none;}
+  label.opt input{accent-color:var(--accent);}
+
+  button{
+    border:none; border-radius:8px; padding:11px 18px; font-weight:700; font-size:13px;
+    cursor:pointer; letter-spacing:.02em; transition:transform .08s ease, background .15s ease;
+  }
+  button:active{transform:scale(0.97);}
+  button.primary{background:var(--accent); color:#08101F;}
+  button.primary:hover{background:#6FA3FF;}
+  button.ghost{background:transparent; border:1px solid var(--line); color:var(--muted);}
+  button.ghost:hover{border-color:var(--accent); color:var(--paper);}
+  .actions{margin-left:auto; display:flex; gap:10px;}
+
+  .error{
+    display:none; background:rgba(242,184,75,0.12); border:1px solid var(--warn); color:var(--warn);
+    border-radius:8px; padding:10px 14px; font-size:13px; margin-bottom:16px;
+  }
+
+  .rounds{display:none;}
+  .rounds.show{display:block;}
+  .round-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(280px,1fr)); gap:14px;}
+  .round-card{
+    background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:16px;
+  }
+  .round-card h4{
+    margin:0 0 12px; font-size:12px; text-transform:uppercase; letter-spacing:.1em; color:var(--accent-2);
+  }
+  .pair{
+    display:flex; align-items:center; gap:10px; padding:8px 10px; margin-bottom:6px;
+    background:var(--panel-2); border-radius:6px; font-size:14.5px; font-weight:600;
+  }
+  .pair:last-child{margin-bottom:0;}
+  .pair .vs{color:var(--muted); font-size:11px; font-weight:700;}
+  .pair.bye{color:var(--warn); font-weight:600;}
+  .pair.bye .vs{color:var(--warn);}
+
+  .footer-note{font-size:11.5px; color:var(--muted); line-height:1.6; margin-top:18px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="eyebrow">Round Robin Pairing</p>
+  <h1>Pair Generator — No Repeats</h1>
+  <p class="sub">Enter names (one per line), then generate every round. Each round pairs everyone up, and no two people are ever paired together twice — a full round-robin schedule generated with the circle method.</p>
+
+  <div class="panel">
+    <h3>Players</h3>
+    <textarea id="names">Ricky
+Matty
+Cynthia
+Tato
+Victoria
+Mateo
+Chucho
+Jesus
+Santi
+Pablo</textarea>
+    <div class="row">
+      <span class="count" id="countLabel"><b>10</b> players</span>
+      <label class="opt"><input type="checkbox" id="shuffleOpt" checked> Shuffle order each time</label>
+      <div class="actions">
+        <button class="ghost" id="printBtn">Print / Save</button>
+        <button class="primary" id="genBtn">Generate Rounds</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="error" id="errorBox"></div>
+
+  <div class="rounds" id="rounds">
+    <div class="panel">
+      <h3 id="roundsSummary"></h3>
+    </div>
+    <div class="round-grid" id="roundGrid"></div>
+  </div>
+
+  <p class="footer-note">
+    <b>How it works:</b> with N players, a full round-robin covers every possible pair exactly once across N-1 rounds (N rounds if N is odd, since one player sits out — "BYE" — each round). This uses the standard circle method: fix one player, rotate the rest around them each round.
+  </p>
+</div>
+
+<script>
+function parseNames(raw){
+  return raw.split('\n').map(s=>s.trim()).filter(Boolean);
+}
+
+function generateRounds(players){
+  let list = players.slice();
+  const hasBye = list.length % 2 !== 0;
+  if(hasBye) list.push('BYE');
+  const n = list.length;
+  const rounds = [];
+  const arr = list.slice();
+  for(let r=0; r<n-1; r++){
+    const roundPairs = [];
+    for(let i=0; i<n/2; i++){
+      const a = arr[i];
+      const b = arr[n-1-i];
+      roundPairs.push([a,b]);
+    }
+    rounds.push(roundPairs);
+    const fixed = arr[0];
+    const rest = arr.slice(1);
+    rest.unshift(rest.pop());
+    arr.splice(0, arr.length, fixed, ...rest);
+  }
+  return rounds;
+}
+
+function shuffle(arr){
+  const a = arr.slice();
+  for(let i=a.length-1; i>0; i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]] = [a[j],a[i]];
+  }
+  return a;
+}
+
+const namesEl = document.getElementById('names');
+const countLabel = document.getElementById('countLabel');
+const errorBox = document.getElementById('errorBox');
+const roundsBox = document.getElementById('rounds');
+const roundGrid = document.getElementById('roundGrid');
+const roundsSummary = document.getElementById('roundsSummary');
+
+function updateCount(){
+  const n = parseNames(namesEl.value).length;
+  countLabel.innerHTML = `<b>${n}</b> player${n===1?'':'s'}`;
+}
+namesEl.addEventListener('input', updateCount);
+updateCount();
+
+function showError(msg){
+  errorBox.textContent = msg;
+  errorBox.style.display = 'block';
+  roundsBox.classList.remove('show');
+}
+function hideError(){
+  errorBox.style.display = 'none';
+}
+
+document.getElementById('genBtn').addEventListener('click', () => {
+  let players = parseNames(namesEl.value);
+
+  const seen = new Set();
+  const dupes = new Set();
+  players.forEach(p=>{
+    const key = p.toLowerCase();
+    if(seen.has(key)) dupes.add(p);
+    seen.add(key);
+  });
+  if(dupes.size){
+    showError(`Duplicate name(s): ${[...dupes].join(', ')}. Each player needs a unique name.`);
+    return;
+  }
+  if(players.length < 2){
+    showError('Enter at least 2 players.');
+    return;
+  }
+
+  hideError();
+
+  if(document.getElementById('shuffleOpt').checked){
+    players = shuffle(players);
+  }
+
+  const rounds = generateRounds(players);
+  const hasBye = players.length % 2 !== 0;
+
+  roundsSummary.textContent = `${players.length} players → ${rounds.length} round${rounds.length===1?'':'s'}, ${Math.floor(players.length/2)} pair${Math.floor(players.length/2)===1?'':'s'} per round${hasBye ? ' (one player gets a BYE each round)' : ''}. Every pair appears exactly once.`;
+
+  roundGrid.innerHTML = '';
+  rounds.forEach((pairs, i) => {
+    const card = document.createElement('div');
+    card.className = 'round-card';
+    const pairsHtml = pairs.map(([a,b])=>{
+      if(a==='BYE' || b==='BYE'){
+        const person = a==='BYE' ? b : a;
+        return `<div class="pair bye"><span class="vs">BYE</span> ${person} sits out this round</div>`;
+      }
+      return `<div class="pair">${a} <span class="vs">vs</span> ${b}</div>`;
+    }).join('');
+    card.innerHTML = `<h4>Round ${i+1}</h4>${pairsHtml}`;
+    roundGrid.appendChild(card);
+  });
+
+  roundsBox.classList.add('show');
+});
+
+document.getElementById('printBtn').addEventListener('click', () => window.print());
+
+document.getElementById('genBtn').click();
+</script>
+</body>
+</html>
